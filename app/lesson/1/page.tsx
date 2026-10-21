@@ -6,43 +6,28 @@ import Link from "next/link";
 interface Exercise {
   id: number;
   question: string;
-  options: { label: string; text: string }[];
-  correctAnswer: string;
+  options: string[];
+  correctIndex: number;
 }
 
 const exercises: Exercise[] = [
   {
     id: 1,
     question: "\"Hello\" so'zining tarjimasi?",
-    options: [
-      { label: "A", text: "Xayr" },
-      { label: "B", text: "Salom" },
-      { label: "C", text: "Rahmat" },
-      { label: "D", text: "Tong" },
-    ],
-    correctAnswer: "B",
+    options: ["Xayr", "Salom", "Rahmat", "Tong"],
+    correctIndex: 1,
   },
   {
     id: 2,
     question: "\"Good morning\" tarjimasi?",
-    options: [
-      { label: "A", text: "Xayrli kech" },
-      { label: "B", text: "Qalaysan?" },
-      { label: "C", text: "Xayrli tong" },
-      { label: "D", text: "Rahmat" },
-    ],
-    correctAnswer: "C",
+    options: ["Xayrli kech", "Qalaysan?", "Xayrli tong", "Rahmat"],
+    correctIndex: 2,
   },
   {
     id: 3,
     question: "\"How are you?\" tarjimasi?",
-    options: [
-      { label: "A", text: "Qalaysan?" },
-      { label: "B", text: "Salom" },
-      { label: "C", text: "Xayr" },
-      { label: "D", text: "Rahmat" },
-    ],
-    correctAnswer: "A",
+    options: ["Qalaysan?", "Salom", "Xayr", "Rahmat"],
+    correctIndex: 0,
   },
 ];
 
@@ -56,15 +41,15 @@ const vocabulary = [
 ];
 
 export default function Lesson1() {
-  const [answers, setAnswers] = useState<{ [key: number]: string | null }>({
+  const [answers, setAnswers] = useState<{ [key: number]: number | null }>({
     1: null,
     2: null,
     3: null,
   });
 
-  const handleOptionClick = (exerciseId: number, optionLabel: string) => {
-    if (!answers[exerciseId]) {
-      setAnswers((prev) => ({ ...prev, [exerciseId]: optionLabel }));
+  const handleOptionClick = (exerciseId: number, optionIndex: number) => {
+    if (answers[exerciseId] === null) {
+      setAnswers((prev) => ({ ...prev, [exerciseId]: optionIndex }));
     }
   };
 
@@ -93,9 +78,9 @@ export default function Lesson1() {
 
       <div className="w-full space-y-8">
         {exercises.map((exercise) => {
-          const selectedAnswer = answers[exercise.id];
-          const isCorrect = selectedAnswer === exercise.correctAnswer;
-          const showFeedback = selectedAnswer !== null;
+          const selectedIndex = answers[exercise.id];
+          const showFeedback = selectedIndex !== null;
+          const isCorrect = selectedIndex === exercise.correctIndex;
 
           return (
             <div key={exercise.id} className="bg-white border rounded-xl p-5 shadow-sm">
@@ -103,15 +88,15 @@ export default function Lesson1() {
                 Mashq {exercise.id}: {exercise.question}
               </h3>
               <div className="space-y-2">
-                {exercise.options.map((option) => {
+                {exercise.options.map((option, index) => {
                   let buttonClass = "w-full text-left p-3 rounded-lg border transition-colors ";
 
                   if (!showFeedback) {
                     buttonClass += "hover:bg-gray-50 bg-white border-gray-200";
                   } else {
-                    if (option.label === exercise.correctAnswer) {
+                    if (index === exercise.correctIndex) {
                       buttonClass += "bg-green-100 border-green-500 font-semibold";
-                    } else if (option.label === selectedAnswer && !isCorrect) {
+                    } else if (index === selectedIndex && !isCorrect) {
                       buttonClass += "bg-red-100 border-red-500 font-semibold";
                     } else {
                       buttonClass += "bg-white border-gray-200 opacity-50";
@@ -120,20 +105,27 @@ export default function Lesson1() {
 
                   return (
                     <button
-                      key={option.label}
-                      onClick={() => handleOptionClick(exercise.id, option.label)}
+                      key={index}
+                      onClick={() => handleOptionClick(exercise.id, index)}
                       disabled={showFeedback}
                       className={buttonClass}
                     >
-                      <span className="font-medium mr-2">{option.label})</span> {option.text}
+                      {option}
                     </button>
                   );
                 })}
               </div>
-              {showFeedback && !isCorrect && (
-                <p className="mt-3 text-red-600 font-medium text-sm text-center">
-                  Noto&apos;g&apos;ri. To&apos;g&apos;ri javob: {exercise.correctAnswer})
-                </p>
+              {showFeedback && (
+                <div className="mt-4 text-center text-sm font-medium">
+                  {isCorrect ? (
+                    <p className="text-green-600">✅ To&apos;g&apos;ri</p>
+                  ) : (
+                    <div className="text-red-600 flex flex-col gap-1">
+                      <p>❌ Xato</p>
+                      <p>To&apos;g&apos;ri javob: {exercise.options[exercise.correctIndex]}</p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           );
