@@ -1,33 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
-interface Exercise {
-  id: number;
-  question: string;
-  options: string[];
-  correctIndex: number;
-}
-
-const exercises: Exercise[] = [
+const allQuestions = [
   {
     id: 1,
-    question: "\"Hello\" so'zining tarjimasi?",
-    options: ["Xayr", "Salom", "Rahmat", "Tong"],
-    correctIndex: 1,
+    en: "Hello",
+    uz: "Salom",
+    distractors_en: ["Xayr", "Rahmat", "Tong"],
+    distractors_uz: ["Hello", "Goodbye", "Thanks"],
   },
   {
     id: 2,
-    question: "\"Good morning\" tarjimasi?",
-    options: ["Xayrli kech", "Qalaysan?", "Xayrli tong", "Rahmat"],
-    correctIndex: 2,
+    en: "Good morning",
+    uz: "Xayrli tong",
+    distractors_en: ["Xayrli kech", "Qalaysan?", "Rahmat"],
+    distractors_uz: ["Good evening", "How are you?", "Thank you"],
   },
   {
     id: 3,
-    question: "\"How are you?\" tarjimasi?",
-    options: ["Qalaysan?", "Salom", "Xayr", "Rahmat"],
-    correctIndex: 0,
+    en: "How are you?",
+    uz: "Qalaysan?",
+    distractors_en: ["Salom", "Xayr", "Rahmat"],
+    distractors_uz: ["Hello", "Goodbye", "Thanks"],
   },
 ];
 
@@ -40,18 +37,84 @@ const vocabulary = [
   { en: "I'm fine, thank you", uz: "Yaxshi, rahmat" },
 ];
 
-export default function Lesson1() {
-  const [answers, setAnswers] = useState<{ [key: number]: number | null }>({
-    1: null,
-    2: null,
-    3: null,
-  });
+interface FormattedExercise {
+  id: number;
+  question: string;
+  options: string[];
+  correctIndex: number;
+}
+
+function Lesson1Content() {
+  const searchParams = useSearchParams();
+  const isTestMode = searchParams.get("test") === "1";
+
+  const [exercises, setExercises] = useState<FormattedExercise[]>([]);
+  const [answers, setAnswers] = useState<{ [key: number]: number | null }>({});
+
+  useEffect(() => {
+    let questionsToUse = [...allQuestions];
+
+    if (!isTestMode) {
+      // Shuffle questions
+      questionsToUse.sort(() => Math.random() - 0.5);
+    }
+
+    const formatted: FormattedExercise[] = questionsToUse.map((q, index) => {
+      // For test mode: 1 and 2 are en->uz, 3 is uz->en
+      // For normal mode: 50% chance each
+      let isEnToUz = true;
+      if (isTestMode) {
+        if (index === 2) isEnToUz = false; // The 3rd question (index 2) will be uz->en
+      } else {
+        isEnToUz = Math.random() > 0.5;
+      }
+
+      const questionText = isEnToUz
+        ? `"${q.en}" so'zining tarjimasi?`
+        : `"${q.uz}" so'zining inglizchasi?`;
+
+      const correctAnswer = isEnToUz ? q.uz : q.en;
+      const distractors = isEnToUz ? q.distractors_en : q.distractors_uz;
+
+      let options = [correctAnswer, ...distractors];
+
+      if (!isTestMode) {
+        // Shuffle options
+        options.sort(() => Math.random() - 0.5);
+      }
+
+      const correctIndex = options.indexOf(correctAnswer);
+
+      return {
+        id: q.id,
+        question: questionText,
+        options,
+        correctIndex,
+      };
+    });
+
+    setExercises(formatted);
+
+    const initialAnswers: { [key: number]: number | null } = {};
+    formatted.forEach((ex) => {
+      initialAnswers[ex.id] = null;
+    });
+    setAnswers(initialAnswers);
+  }, [isTestMode]);
 
   const handleOptionClick = (exerciseId: number, optionIndex: number) => {
     if (answers[exerciseId] === null) {
       setAnswers((prev) => ({ ...prev, [exerciseId]: optionIndex }));
     }
   };
+
+  const handleRetry = (exerciseId: number) => {
+    setAnswers((prev) => ({ ...prev, [exerciseId]: null }));
+  };
+
+  if (exercises.length === 0) {
+    return <div className="p-10 text-center">Yuklanmoqda...</div>;
+  }
 
   const isAllAnswered = Object.values(answers).every((ans) => ans !== null);
 
@@ -77,7 +140,7 @@ export default function Lesson1() {
       </div>
 
       <div className="w-full space-y-8">
-        {exercises.map((exercise) => {
+        {exercises.map((exercise, displayIndex) => {
           const selectedIndex = answers[exercise.id];
           const showFeedback = selectedIndex !== null;
           const isCorrect = selectedIndex === exercise.correctIndex;
@@ -85,7 +148,7 @@ export default function Lesson1() {
           return (
             <div key={exercise.id} className="bg-white border rounded-xl p-5 shadow-sm">
               <h3 className="font-medium text-lg mb-4">
-                Mashq {exercise.id}: {exercise.question}
+                Mashq {displayIndex + 1}: {exercise.question}
               </h3>
               <div className="space-y-2">
                 {exercise.options.map((option, index) => {
@@ -120,9 +183,17 @@ export default function Lesson1() {
                   {isCorrect ? (
                     <p className="text-green-600">✅ To&apos;g&apos;ri</p>
                   ) : (
-                    <div className="text-red-600 flex flex-col gap-1">
-                      <p>❌ Xato</p>
-                      <p>To&apos;g&apos;ri javob: {exercise.options[exercise.correctIndex]}</p>
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="text-red-600">
+                        <p>❌ Xato</p>
+                        <p>To&apos;g&apos;ri javob: {exercise.options[exercise.correctIndex]}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRetry(exercise.id)}
+                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-semibold"
+                      >
+                        Qayta urinish
+                      </button>
                     </div>
                   )}
                 </div>
@@ -149,5 +220,13 @@ export default function Lesson1() {
         Bosh sahifaga qaytish
       </Link>
     </main>
+  );
+}
+
+export default function Lesson1() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">Yuklanmoqda...</div>}>
+      <Lesson1Content />
+    </Suspense>
   );
 }
